@@ -280,7 +280,7 @@ function App() {
             }}
           >
             <div className="cnct" id="multiM" onClick={() => {
-              MultiMarkerEnabler();
+             
             }} style={{fontWeight:"bold"}}>Enable multiple pointers</div>
           </div>
         </Draggable>
@@ -511,6 +511,7 @@ function App() {
           center={[23.777176, 90.399452]}
           zoom={13}
           attributionControl={true}
+          // maxZoom={24}
           ref={mapM}
         >
           <TileLayer url={onlineURL} attribution="&#128994; Online" />
