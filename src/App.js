@@ -262,7 +262,7 @@ function App() {
 
   return (
     <div onKeyDown={keyPress}>
-      <Draggable>
+      {/* <Draggable>
           <div
             style={{
               position: "absolute",
@@ -283,7 +283,7 @@ function App() {
              
             }} style={{fontWeight:"bold"}}>Enable multiple pointers</div>
           </div>
-        </Draggable>
+        </Draggable> */}
       <Draggable cancel=".cancel">
         <div
           style={{
