@@ -5,6 +5,7 @@ import {
   TileLayer,
   useMapEvents,
   Marker,
+  Polyline,
   ScaleControl,
 } from "react-leaflet";
 import L from "leaflet";
@@ -13,21 +14,23 @@ import Draggable from "react-draggable";
 import markerRed from "./assets/markerRed.png";
 import markerBlack from "./assets/markerBlack.png";
 import roverIcon from "./assets/rover.png";
+import compassIcon from "./assets/compass.png";
 import axios from "axios";
 
 function App() {
   const onlineURL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
   const offlineURL = "./maps/{z}/{x}/{y}.png";
-  const [isOnline, setIsOnline] = useState(true);
+  // const [isOnline, setIsOnline] = useState(true);
   const [connect, setConnect] = useState(false);
   const mapM = useRef();
 
   const [locations, setLocations] = useState([]);
+  const [multiPoints, setMultiPoints] = useState([]);
 
   const latRef = useRef(null);
   const lonRef = useRef(null);
   const [position, setPosition] = useState(null);
-  const markerRef2 = useRef({ latitude: 0, longitude: 0 });
+  // const markerRef2 = useRef({ latitude: 0, longitude: 0 });
   const markerIcon = L.icon({
     iconUrl: markerRed,
     iconSize: [38, 38],
@@ -47,12 +50,21 @@ function App() {
     iconAnchor: [19, 40],
     popupAnchor: [-3, -76],
   });
+
+  function createLabeledIcon(label) {
+    return L.divIcon({
+      html: `<div style="background-color: white; border: 1px solid black; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">${label}</div>`,
+      className: "",
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+    });
+  }
+
   function LocationMarker() {
     const markerRef = useRef(null);
     const map = useMapEvents({
       click(e) {
         setPosition(e.latlng);
-        // map.flyTo(e.latlng, map.getZoom())
       },
       locationfound(e) {
         setPosition(e.latlng);
@@ -60,109 +72,48 @@ function App() {
       },
     });
 
-    const [flag, setFlag] = useState(false);
-    const [vals, setVals] = useState([]);
-    const [loc, setLoc] = useState();
-    // var loc2 = { latitude: 0, longitude: 0 };
-    const [mark, setMark] = useState();
-    const [count, setCount] = useState(0);
-
-    // var markers = L.markerClusterGroup();
-
     useEffect(() => {
       if (connect) {
-        axios.get("http://localhost:4000/keys").then((res) => {
-          // console.log(res.data);
-          setVals((prev) => [...res.data]);
-          if (res.data.length > 0) {
-            res.data.map((val) => {
-              if (val !== undefined) {
-                document.getElementById("keys").innerHTML =
-                  val.data.toUpperCase();
-                // setTimeout(() => {
-                //   document.getElementById("keys").innerHTML = "-";
-                // }, 1000);
-              }
-            });
-          }
-          setFlag(!flag);
-          setCount((count) => count + 1);
-          axios.get("http://localhost:4000/navsat/fix").then((res) => {
-            // console.log(res.data[0]);
-            setLoc((prev) => res.data[0]);
-
-            // setLocations((prev) => [res.data[0], ...prev])
-
+        const fetchLocation = async () => {
+          await axios.get("http://localhost:4000/navsat/fix").then((res) => {
             setLocations((prev) => [
               ...prev,
-              new L.LatLng(res.data[0].latitude, res.data[0].longitude),
+              new L.LatLng(res?.data[0]?.latitude, res?.data[0]?.longitude),
             ]);
 
-            markerIn(res.data[0].latitude, res.data[0].longitude);
-            // markerRef2.current._latlng.lat = res.data[0].latitude;
-            // markerRef2.current._latlng.lng = res.data[0].longitude;
+            markerIn(res?.data[0]?.latitude, res?.data[0]?.longitude);
             document.getElementById("loclat").innerHTML =
               res?.data[0]?.latitude;
             document.getElementById("loclon").innerHTML =
               res?.data[0]?.longitude;
           });
-          axios.get("http://localhost:4000/imu/data").then((res) => {
-            document.getElementById("orx").innerHTML =
-              res.data[0].orientation.x;
-            document.getElementById("ory").innerHTML =
-              res.data[0].orientation.y;
-            document.getElementById("orz").innerHTML =
-              res.data[0].orientation.z;
-            document.getElementById("orw").innerHTML =
-              res.data[0].orientation.w;
+        };
 
-            document.getElementById("angx").innerHTML =
-              res.data[0].angular_velocity.x;
-            document.getElementById("angy").innerHTML =
-              res.data[0].angular_velocity.y;
-            document.getElementById("angz").innerHTML =
-              res.data[0].angular_velocity.z;
-
-            document.getElementById("linx").innerHTML =
-              res.data[0].linear_acceleration.x;
-            document.getElementById("liny").innerHTML =
-              res.data[0].linear_acceleration.y;
-            document.getElementById("linz").innerHTML =
-              res.data[0].linear_acceleration.z;
+        const fetchYaw = async () => {
+          await axios.get("http://localhost:4000/yaw").then((res) => {
+            if (res.data[0] !== undefined) {
+              document.getElementById("yaw").style.transform = `rotate(${-res.data[0].data}deg)`;
+            }
           });
-        });
-      }
-    }, [flag, connect]);
-    console.log(locations);
+        };
 
-    if(locations.length > 100) {
+        fetchYaw();
+        fetchLocation();
+      }
+    }, [connect]);
+
+    if (locations.length > 100) {
       setLocations([]);
-    }
-
-    const [multiMarker, setMultiMarker] = useState(false);
-    const [multiMarker2, setMultiMarker2] = useState([]);
-
-    function MultiMarkerEnabler() {
-      if (multiMarker) {
-        setMultiMarker(false);
-      } else {
-        setMultiMarker(true);
-      }
     }
 
     function markerIn(lat, lon) {
       map.eachLayer((layer) => {
-        // console.log(layer);
-        if (layer instanceof L.Marker) {
+        if (layer instanceof L.Marker && layer.options.icon !== markerIcon3) {
           layer.remove();
         }
-
-        // if (layer instanceof L.Polyline) {
-        //   layer.remove();
-        // }
       });
 
-      var polyline = L.polyline(locations, {
+      L.polyline(locations, {
         color: "blue",
         weight: 2,
         opacity: 0.5,
@@ -178,12 +129,8 @@ function App() {
 
       var marker = L.marker([lat, lon], { icon: markerIcon3 });
       marker.addTo(map);
-      // map.addLayer(markers);
     }
 
-    // console.log(mapM);
-
-    // console.log("vals:", vals);
     return position === null ? null : (
       <Marker
         position={position}
@@ -198,11 +145,9 @@ function App() {
   }
 
   const [pressedKeys, setPressedKeys] = useState();
-  // console.log(markerRef2);
 
   function keyPress(e) {
     if (connect) {
-      // console.log("Key:", e.key);
       setPressedKeys(e.key.toUpperCase());
       axios.post("http://localhost:4000/keys", { key: e.key });
     }
@@ -219,16 +164,6 @@ function App() {
       setLocations([]);
       document.getElementById("loclat").innerHTML = "-";
       document.getElementById("loclon").innerHTML = "-";
-      document.getElementById("orx").innerHTML = "-";
-      document.getElementById("ory").innerHTML = "-";
-      document.getElementById("orz").innerHTML = "-";
-      document.getElementById("orw").innerHTML = "-";
-      document.getElementById("angx").innerHTML = "-";
-      document.getElementById("angy").innerHTML = "-";
-      document.getElementById("angz").innerHTML = "-";
-      document.getElementById("linx").innerHTML = "-";
-      document.getElementById("liny").innerHTML = "-";
-      document.getElementById("linz").innerHTML = "-";
     }, 500);
   }
 
@@ -244,46 +179,59 @@ function App() {
     );
   }
 
-  // function InputMarker2() {
-  // return markerRef2.current.latitude===0 && markerRef2.current.longitude===0 ? null : (
-  //   <Marker
-  //     position={[markerRef2.current.latitude, markerRef2.current.longitude]}
-  //     ref={markerRef2}
-  //     icon={markerIcon2}
-  //   ></Marker>
-  // );
+  function handleAddPoint() {
+    const lat = parseFloat(latRef.current.value);
+    const lon = parseFloat(lonRef.current.value);
+    if (!isNaN(lat) && !isNaN(lon)) {
+      setMultiPoints((prev) => [...prev, { lat, lon }]);
+    }
+  }
 
-  // }
+  function handleRemovePoint(index) {
+    setMultiPoints((prev) => prev.filter((_, i) => i !== index));
+  }
 
-  // const [r, setR] = useState(false);
-  // useEffect(()=> {
-  //   setR(!r)
-  // }, [])
+  function handleMovePointUp(index) {
+    if (index > 0) {
+      setMultiPoints((prev) => {
+        const newPoints = [...prev];
+        [newPoints[index - 1], newPoints[index]] = [newPoints[index], newPoints[index - 1]];
+        return newPoints;
+      });
+    }
+  }
+
+  function handleMovePointDown(index) {
+    if (index < multiPoints.length - 1) {
+      setMultiPoints((prev) => {
+        const newPoints = [...prev];
+        [newPoints[index + 1], newPoints[index]] = [newPoints[index], newPoints[index + 1]];
+        return newPoints;
+      });
+    }
+  }
 
   return (
     <div onKeyDown={keyPress}>
-      {/* <Draggable>
-          <div
-            style={{
-              position: "absolute",
-              top: "90px",
-              left: "30px",
-              zIndex: "9999",
-              display: "flex",
-              flexDirection: "column",
-
-              background: "rgba(255, 255, 255, 0.12)",
-              borderRadius: "16px",
-              boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)",
-              backdropFilter: "blur(13.5px)",
-              padding: "10px",
-            }}
-          >
-            <div className="cnct" id="multiM" onClick={() => {
-             
-            }} style={{fontWeight:"bold"}}>Enable multiple pointers</div>
-          </div>
-        </Draggable> */}
+      <Draggable>
+        <div
+          style={{
+            position: "absolute",
+            top: "90px",
+            left: "30px",
+            zIndex: "9999",
+            display: "flex",
+            flexDirection: "column",
+            background: "rgba(255, 255, 255, 0.12)",
+            borderRadius: "16px",
+            boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)",
+            backdropFilter: "blur(13.5px)",
+            padding: "10px",
+          }}
+        >
+          <img src={compassIcon} id="yaw" alt="compass" style={{ width: "150px" }} />
+        </div>
+      </Draggable>
       <Draggable cancel=".cancel">
         <div
           style={{
@@ -293,7 +241,6 @@ function App() {
             zIndex: "9999",
             display: "flex",
             flexDirection: "column",
-
             background: "rgba(255, 255, 255, 0.12)",
             borderRadius: "16px",
             boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)",
@@ -379,53 +326,13 @@ function App() {
               -
             </span>
           </div>
-          <br />
-          <div
-            style={{
-              fontWeight: "bold",
-              fontSize: "1.2rem",
-              marginTop: "20px",
-            }}
-          >
-            IMU Data:
-          </div>
-          <div>
-            <span style={{ fontWeight: "bold" }}>Orientation:</span> <br />
-            x: <span id="orx">-</span>
-            <br />
-            y: <span id="ory">-</span>
-            <br />
-            z: <span id="orz">-</span>
-            <br />
-            w: <span id="orw">-</span>
-          </div>
-          <div>
-            <span style={{ fontWeight: "bold" }}>Angular Velocity:</span> <br />
-            x: <span id="angx">-</span>
-            <br />
-            y: <span id="angy">-</span>
-            <br />
-            z: <span id="angz">-</span>
-          </div>
-          <div>
-            <span style={{ fontWeight: "bold" }}>Linear Accelaration:</span>{" "}
-            <br />
-            x: <span id="linx">-</span>
-            <br />
-            y: <span id="liny">-</span>
-            <br />
-            z: <span id="linz">-</span>
-          </div>
-          {/* <div id="loclat"></div> */}
         </div>
       </Draggable>
       <Draggable cancel=".cancel">
         <form
           onSubmit={(e) => {
             e.preventDefault();
-          }}
-          onClick={() => {
-            setIsOnline(!isOnline);
+            handleAddPoint();
           }}
           style={{
             position: "absolute",
@@ -434,7 +341,6 @@ function App() {
             zIndex: "9999",
             display: "flex",
             flexDirection: "column",
-
             background: "rgba(255, 255, 255, 0.12)",
             borderRadius: "16px",
             boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)",
@@ -442,11 +348,7 @@ function App() {
             padding: "10px",
           }}
         >
-          {/* <label class="switch">
-          <input type="checkbox" />
-          <span class="slider round"></span>
-        </label> */}
-          <label for="inputlat">Latitude:</label>
+          <label htmlFor="inputlat">Latitude:</label>
           <input
             className="cancel"
             type="text"
@@ -454,7 +356,7 @@ function App() {
             name="inputlat"
             ref={latRef}
           />
-          <label for="inputlon">Longitude:</label>
+          <label htmlFor="inputlon">Longitude:</label>
           <input
             className="cancel"
             type="text"
@@ -463,9 +365,38 @@ function App() {
             ref={lonRef}
           />
           <button className="button cancel">
-            <span>Go</span>
+            <span>Add Point</span>
           </button>
         </form>
+      </Draggable>
+      <Draggable>
+        <div
+          style={{
+            position: "absolute",
+            top: "250px",
+            right: "30px",
+            zIndex: "9999",
+            display: "flex",
+            flexDirection: "column",
+            background: "rgba(255, 255, 255, 0.12)",
+            borderRadius: "16px",
+            boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)",
+            backdropFilter: "blur(13.5px)",
+            padding: "10px",
+          }}
+        >
+          <div style={{ fontWeight: "bold" }}>Points</div>
+          <ul>
+            {multiPoints.map((point, index) => (
+              <li key={index}>
+                {String.fromCharCode(65 + index)}: {point.lat}, {point.lon}{" "}
+                <button onClick={() => handleRemovePoint(index)}>Remove</button>
+                <button onClick={() => handleMovePointUp(index)}>Up</button>
+                <button onClick={() => handleMovePointDown(index)}>Down</button>
+              </li>
+            ))}
+          </ul>
+        </div>
       </Draggable>
       {position && (
         <Draggable>
@@ -477,7 +408,6 @@ function App() {
               zIndex: "9999",
               display: "flex",
               flexDirection: "column",
-
               background: "rgba(255, 255, 255, 0.12)",
               borderRadius: "16px",
               boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)",
@@ -502,23 +432,46 @@ function App() {
         >
           <TileLayer url={offlineURL} attribution="&#128308; Offline" />
           <LocationMarker />
-
           <InputMarker />
           <ScaleControl />
+          {multiPoints.map((point, index) => (
+            <Marker
+              key={index}
+              position={[point.lat, point.lon]}
+              icon={createLabeledIcon(String.fromCharCode(65 + index))}
+            />
+          ))}
+          {multiPoints.length > 1 && (
+            <Polyline
+              positions={multiPoints.map((point) => [point.lat, point.lon])}
+              color="red"
+            />
+          )}
         </MapContainer>
       ) : (
         <MapContainer
           center={[23.777176, 90.399452]}
           zoom={13}
           attributionControl={true}
-          // maxZoom={24}
           ref={mapM}
         >
           <TileLayer url={onlineURL} attribution="&#128994; Online" />
           <LocationMarker />
-
           <InputMarker />
           <ScaleControl />
+          {multiPoints.map((point, index) => (
+            <Marker
+              key={index}
+              position={[point.lat, point.lon]}
+              icon={createLabeledIcon(String.fromCharCode(65 + index))}
+            />
+          ))}
+          {multiPoints.length > 1 && (
+            <Polyline
+              positions={multiPoints.map((point) => [point.lat, point.lon])}
+              color="red"
+            />
+          )}
         </MapContainer>
       )}
     </div>
