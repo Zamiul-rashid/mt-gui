@@ -55,16 +55,16 @@ app.get("/navsat/fix", (req, res) => {
 
   const listener = new roslib.Topic({
     ros: ros,
-    name: "/navsat/fix",
-    messageType: "sensor_msgs/NavSatFix",
+    name: "/gps_rtk",
+    messageType: "sensor_msgs/msg/NavSatFix",
   });
 
   var msgs = []
   // Array to store received messages
   listener.subscribe(function (message) {
     console.log("Received message on " + listener.name + ": " + message);
-    console.log(message.latitude);
-    console.log(message.longitude);
+    console.log(message);
+    // console.log(message.longitude);
     msgs.push(message);
   });
 
@@ -72,7 +72,7 @@ app.get("/navsat/fix", (req, res) => {
     listener.unsubscribe();
     ros.close();
     res.send(msgs);
-  }, 200);
+  }, 1000);
 });
 
 app.get("/imu/data", (req, res) => {
@@ -96,6 +96,37 @@ app.get("/imu/data", (req, res) => {
   listener.subscribe(function (message) {
     console.log("Received message on " + listener.name + ": " + message);
     console.log(message.orientation);
+    msgs.push(message);
+  });
+
+  setTimeout(() => {
+    listener.unsubscribe();
+    ros.close();
+    res.send(msgs);
+  }, 200);
+});
+
+app.get("/yaw", (req, res) => {
+  const ros = new roslib.Ros({ encoding: "ascii" });
+
+  ros.on('error', function(error) {
+    console.error('ROSlib error:', error);
+  });
+
+  ros.connect("ws://localhost:9090");
+  console.log("ROS connected");
+
+  const listener = new roslib.Topic({
+    ros: ros,
+    name: "/yaw",
+    messageType: "std_msgs/msg/Float64",
+  });
+
+  var msgs = []
+
+  listener.subscribe(function (message) {
+    console.log("Received message on " + listener.name + ": " + message);
+    console.log(message.data);
     msgs.push(message);
   });
 
