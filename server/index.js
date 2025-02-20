@@ -55,7 +55,7 @@ app.get("/navsat/fix", (req, res) => {
 
   const listener = new roslib.Topic({
     ros: ros,
-    name: "/gps_rtk",
+    name: "/sbg/gps_pos",
     messageType: "sensor_msgs/msg/NavSatFix",
   });
 
