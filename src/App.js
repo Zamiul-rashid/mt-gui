@@ -445,6 +445,9 @@ function App() {
             <Polyline
               positions={multiPoints.map((point) => [point.lat, point.lon])}
               color="red"
+              dashArray='10'
+              // dashOffset="10"
+
             />
           )}
         </MapContainer>
@@ -470,6 +473,7 @@ function App() {
             <Polyline
               positions={multiPoints.map((point) => [point.lat, point.lon])}
               color="red"
+              dashArray='10'
             />
           )}
         </MapContainer>
