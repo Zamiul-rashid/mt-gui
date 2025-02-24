@@ -20,17 +20,17 @@ import axios from "axios";
 function Positioner() {
   const onlineURL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
   const offlineURL = "./maps/{z}/{x}/{y}.png";
-  // const [isOnline, setIsOnline] = useState(true);
   const [connect, setConnect] = useState(false);
   const mapM = useRef();
 
   const [locations, setLocations] = useState([]);
   const [multiPoints, setMultiPoints] = useState([]);
+  const [distance, setDistance] = useState(null);
+  const [copyMessage, setCopyMessage] = useState("");
 
   const latRef = useRef(null);
   const lonRef = useRef(null);
   const [position, setPosition] = useState(null);
-  // const markerRef2 = useRef({ latitude: 0, longitude: 0 });
   const markerIcon = L.icon({
     iconUrl: markerRed,
     iconSize: [38, 38],
@@ -59,6 +59,60 @@ function Positioner() {
       iconAnchor: [12, 12],
     });
   }
+
+  // Copy to clipboard function
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text).then(
+      function() {
+        setCopyMessage("Copied!");
+        setTimeout(() => setCopyMessage(""), 2000);
+      },
+      function(err) {
+        setCopyMessage("Failed to copy");
+        setTimeout(() => setCopyMessage(""), 2000);
+      }
+    );
+  };
+
+  // Function to clear coordinate inputs
+  const clearCoordinateInputs = () => {
+    if (latRef.current) latRef.current.value = '';
+    if (lonRef.current) lonRef.current.value = '';
+  };
+
+  // Calculate distance between two coordinates in meters using Haversine formula
+  function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371000; // Radius of the earth in meters
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const d = R * c; // Distance in meters
+    return d;
+  }
+
+  function deg2rad(deg) {
+    return deg * (Math.PI / 180);
+  }
+
+  // Update distance calculation whenever multiPoints changes
+  useEffect(() => {
+    if (multiPoints.length >= 2) {
+      const latestPoints = [...multiPoints].slice(-2);
+      const dist = calculateDistance(
+        latestPoints[0].lat,
+        latestPoints[0].lon,
+        latestPoints[1].lat,
+        latestPoints[1].lon
+      );
+      setDistance(dist);
+    } else {
+      setDistance(null);
+    }
+  }, [multiPoints]);
 
   function LocationMarker() {
     const markerRef = useRef(null);
@@ -311,8 +365,13 @@ function Positioner() {
           <div>
             Latitude:{" "}
             <span
-              style={{ fontWeight: "bold", fontSize: "1.2rem" }}
+              style={{ fontWeight: "bold", fontSize: "1.2rem", cursor: "pointer" }}
               id="loclat"
+              onClick={() => {
+                const lat = document.getElementById("loclat").innerText;
+                if (lat !== "-") copyToClipboard(lat);
+              }}
+              title="Click to copy"
             >
               -
             </span>
@@ -320,8 +379,13 @@ function Positioner() {
           <div>
             Longitude:{" "}
             <span
-              style={{ fontWeight: "bold", fontSize: "1.2rem" }}
+              style={{ fontWeight: "bold", fontSize: "1.2rem", cursor: "pointer" }}
               id="loclon"
+              onClick={() => {
+                const lon = document.getElementById("loclon").innerText;
+                if (lon !== "-") copyToClipboard(lon);
+              }}
+              title="Click to copy"
             >
               -
             </span>
@@ -364,9 +428,18 @@ function Positioner() {
             name="inputlon"
             ref={lonRef}
           />
-          <button className="button cancel">
-            <span>Add Point</span>
-          </button>
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button className="button cancel" type="submit">
+              <span>Add Point</span>
+            </button>
+            <button 
+              className="button cancel" 
+              type="button" 
+              onClick={clearCoordinateInputs}
+            >
+              <span>Clear</span>
+            </button>
+          </div>
         </form>
       </Draggable>
       <Draggable>
@@ -389,7 +462,13 @@ function Positioner() {
           <ul>
             {multiPoints.map((point, index) => (
               <li key={index}>
-                {String.fromCharCode(65 + index)}: {point.lat}, {point.lon}{" "}
+                <span 
+                  style={{ cursor: "pointer" }}
+                  title="Click to copy coordinates" 
+                  onClick={() => copyToClipboard(`${point.lat}, ${point.lon}`)}
+                >
+                  {String.fromCharCode(65 + index)}: {point.lat}, {point.lon}
+                </span>{" "}
                 <button onClick={() => handleRemovePoint(index)}>Remove</button>
                 <button onClick={() => handleMovePointUp(index)}>Up</button>
                 <button onClick={() => handleMovePointDown(index)}>Down</button>
@@ -416,8 +495,52 @@ function Positioner() {
             }}
           >
             <div style={{ fontWeight: "bold" }}>Output</div>
-            <div>Latitude: {position && position.lat}</div>
-            <div>Longitude: {position && position.lng}</div>
+            <div style={{ display: "flex", alignItems: "center", marginBottom: "5px", gap: "10px" }}>
+              <div>Latitude: <span style={{ fontWeight: "bold" }}>{position.lat}</span></div>
+              <button 
+                onClick={() => copyToClipboard(position.lat)}
+                style={{ padding: "2px 8px" }}
+              >
+                Copy Lat
+              </button>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div>Longitude: <span style={{ fontWeight: "bold" }}>{position.lng}</span></div>
+              <button 
+                onClick={() => copyToClipboard(position.lng)}
+                style={{ padding: "2px 8px" }}
+              >
+                Copy Lon
+              </button>
+            </div>
+            {copyMessage && <div style={{ color: "green", marginTop: "5px", textAlign: "center" }}>{copyMessage}</div>}
+          </div>
+        </Draggable>
+      )}
+      {/* Distance display component showing meters */}
+      {distance !== null && (
+        <Draggable>
+          <div
+            style={{
+              position: "absolute",
+              bottom: "150px",
+              right: "30px",
+              zIndex: "9999",
+              display: "flex",
+              flexDirection: "column",
+              background: "rgba(255, 255, 255, 0.12)",
+              borderRadius: "16px",
+              boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)",
+              backdropFilter: "blur(13.5px)",
+              padding: "10px",
+              minWidth: "200px",
+            }}
+          >
+            <div style={{ fontWeight: "bold" }}>Distance</div>
+            <div>Between last two points:</div>
+            <div style={{ fontSize: "1.2rem", fontWeight: "bold" }}>
+              {Math.round(distance)} meters
+            </div>
           </div>
         </Draggable>
       )}
@@ -446,8 +569,6 @@ function Positioner() {
               positions={multiPoints.map((point) => [point.lat, point.lon])}
               color="red"
               dashArray='10'
-              // dashOffset="10"
-
             />
           )}
         </MapContainer>
