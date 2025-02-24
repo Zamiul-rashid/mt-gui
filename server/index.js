@@ -56,7 +56,7 @@ app.get("/navsat/fix", (req, res) => {
   const listener = new roslib.Topic({
     ros: ros,
     name: "/sbg/gps_pos",
-    messageType: "sensor_msgs/msg/NavSatFix",
+    messageType: "sbg_driver/msg/SbgGpsPos",
   });
 
   var msgs = []
@@ -64,7 +64,7 @@ app.get("/navsat/fix", (req, res) => {
   listener.subscribe(function (message) {
     console.log("Received message on " + listener.name + ": " + message);
     console.log(message);
-    // console.log(message.longitude);
+    // console.log("Lon", message.longitude);
     msgs.push(message);
   });
 
